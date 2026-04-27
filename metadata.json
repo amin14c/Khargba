@@ -1,0 +1,6 @@
+{
+  "name": "Kharbga / Zamma Online (7x7 Checkers)",
+  "description": "A 7x7 checkers-like game played with rocks and date pits. Supports online multiplayer, email/phone authentication, and 4 languages (Tamazight, Arabic, French, English).",
+  "requestFramePermissions": [],
+  "majorCapabilities": []
+}

@@ -1,0 +1,57 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User profile data",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "email": { "type": "string" },
+        "displayName": { "type": "string" },
+        "createdAt": { "type": "timestamp" }
+      },
+      "required": ["uid", "email", "createdAt"]
+    },
+    "Game": {
+      "title": "Game",
+      "description": "Kharbga / Zamma Game match",
+      "type": "object",
+      "properties": {
+        "status": { "type": "string", "enum": ["waiting", "playing", "finished"] },
+        "hostId": { "type": "string" },
+        "guestId": { "type": "string" },
+        "turn": { "type": "string", "enum": ["host", "guest"] },
+        "board": { "type": "list" },
+        "winner": { "type": "string" },
+        "createdAt": { "type": "timestamp" },
+        "updatedAt": { "type": "timestamp" }
+      },
+      "required": ["status", "hostId", "turn", "board", "createdAt", "updatedAt"]
+    },
+    "Message": {
+      "title": "Message",
+      "description": "Chat message in a game",
+      "type": "object",
+      "properties": {
+        "senderId": { "type": "string" },
+        "text": { "type": "string" },
+        "createdAt": { "type": "timestamp" }
+      },
+      "required": ["senderId", "text", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "User" },
+      "description": "User profiles"
+    },
+    "/games/{gameId}": {
+      "schema": { "$ref": "Game" },
+      "description": "Active and past games"
+    },
+    "/games/{gameId}/messages/{messageId}": {
+      "schema": { "$ref": "Message" },
+      "description": "Chat messages within a game"
+    }
+  }
+}

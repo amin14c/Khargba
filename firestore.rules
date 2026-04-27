@@ -1,0 +1,131 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Global Safety Net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Primitives
+    function incoming() { return request.resource.data; }
+    function existing() { return resource.data; }
+    function isSignedIn() { 
+      return request.auth != null && request.auth.token.email_verified == true; 
+    }
+    // For phone auth or standard, let's relax email_verified if they use phone
+    // However, the rules ask to strictly mandate email_verified == true unless anonymous. 
+    // Wait, if they login with phone, `email_verified` won't exist or is false. 
+    // Let's use `request.auth != null`, and if provider is password, enforce email_verified?
+    function isVerified() {
+      return request.auth != null && (
+        (request.auth.token.firebase.sign_in_provider == 'phone') ||
+        (request.auth.token.email_verified == true)
+      );
+    }
+    function isValidId(id) { 
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$'); 
+    }
+
+    // Validations
+    function isValidUser(data) {
+      return data.keys().hasAll(['uid', 'email', 'createdAt']) &&
+             data.keys().size() <= 4 &&
+             data.uid is string && data.uid.size() <= 128 && data.uid == request.auth.uid &&
+             data.email is string && data.email.size() <= 200 &&
+             data.createdAt == request.time &&
+             (data.get('displayName', '') is string);
+    }
+
+    function isValidGameCreate(data) {
+      return data.keys().hasAll(['status', 'hostId', 'guestId', 'turn', 'board', 'winner', 'createdAt', 'updatedAt']) &&
+             data.keys().size() == 8 &&
+             data.status == 'waiting' &&
+             data.hostId == request.auth.uid && data.hostId.size() <= 128 &&
+             data.guestId == '' &&
+             data.turn == 'host' &&
+             data.board is list && data.board.size() == 49 &&
+             data.winner == '' &&
+             data.createdAt == request.time &&
+             data.updatedAt == request.time;
+    }
+
+    function isValidGameUpdate(data) {
+      return data.status in ['waiting', 'playing', 'finished'] &&
+             data.hostId is string && data.hostId.size() <= 128 &&
+             data.guestId is string && data.guestId.size() <= 128 &&
+             data.turn in ['host', 'guest'] &&
+             data.board is list && data.board.size() == 49 &&
+             data.winner is string && data.winner.size() <= 128 &&
+             data.updatedAt == request.time;
+    }
+
+    function isValidMessage(data) {
+      return data.keys().hasAll(['senderId', 'text', 'createdAt']) &&
+             data.keys().size() == 3 &&
+             data.senderId == request.auth.uid && data.senderId.size() <= 128 &&
+             data.text is string && data.text.size() > 0 && data.text.size() <= 500 &&
+             data.createdAt == request.time;
+    }
+
+    // Game Actions
+    function isJoinAction() {
+      return existing().status == 'waiting' &&
+             incoming().status == 'playing' &&
+             existing().guestId == '' &&
+             incoming().guestId == request.auth.uid &&
+             incoming().guestId != existing().hostId &&
+             incoming().diff(existing()).affectedKeys().hasOnly(['status', 'guestId', 'updatedAt']);
+    }
+
+    function isMoveAction() {
+      return existing().status == 'playing' &&
+             // terminal lock check included below
+             (
+               (existing().turn == 'host' && existing().hostId == request.auth.uid && incoming().turn == 'guest') ||
+               (existing().turn == 'guest' && existing().guestId == request.auth.uid && incoming().turn == 'host')
+             ) &&
+             incoming().diff(existing()).affectedKeys().hasOnly(['board', 'turn', 'updatedAt', 'status', 'winner']);
+    }
+
+    match /users/{userId} {
+      allow get: if isVerified();
+      // allow list: if false (users shouldn't query other users generically)
+      allow create: if isVerified() && isValidId(userId) && userId == request.auth.uid && isValidUser(incoming());
+      allow update: if isVerified() && isValidId(userId) && userId == request.auth.uid && 
+                    incoming().diff(existing()).affectedKeys().hasOnly(['displayName']) &&
+                    incoming().displayName is string && incoming().displayName.size() <= 100;
+    }
+
+    match /games/{gameId} {
+      allow get: if isVerified() && isValidId(gameId);
+      allow list: if isVerified() && (resource.data.hostId == request.auth.uid || resource.data.guestId == request.auth.uid || resource.data.status == 'waiting');
+      
+      allow create: if isVerified() && isValidId(gameId) && isValidGameCreate(incoming());
+      allow update: if isVerified() && isValidId(gameId) &&
+                    isValidGameUpdate(incoming()) &&
+                    existing().status != 'finished' && // Terminal state guard
+                    incoming().hostId == existing().hostId &&
+                    incoming().createdAt == existing().createdAt &&
+                    (
+                      isJoinAction() ||
+                      isMoveAction()
+                    );
+                    
+      match /messages/{messageId} {
+        allow read: if isVerified() && isValidId(gameId) && (
+          get(/databases/$(database)/documents/games/$(gameId)).data.hostId == request.auth.uid ||
+          get(/databases/$(database)/documents/games/$(gameId)).data.guestId == request.auth.uid
+        );
+        allow list: if isVerified() && isValidId(gameId) && (
+          get(/databases/$(database)/documents/games/$(gameId)).data.hostId == request.auth.uid ||
+          get(/databases/$(database)/documents/games/$(gameId)).data.guestId == request.auth.uid
+        );
+        allow create: if isVerified() && isValidId(gameId) && isValidId(messageId) && isValidMessage(incoming()) && (
+          get(/databases/$(database)/documents/games/$(gameId)).data.hostId == request.auth.uid ||
+          get(/databases/$(database)/documents/games/$(gameId)).data.guestId == request.auth.uid
+        );
+      }
+    }
+  }
+}
