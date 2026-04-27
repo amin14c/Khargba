@@ -30,8 +30,12 @@ export default function App() {
               createdAt: serverTimestamp()
             });
           }
-        } catch (e) {
-          console.error("Error creating user profile", e);
+        } catch (e: any) {
+          if (e.message && e.message.toLowerCase().includes('offline')) {
+            console.warn("Client is offline. Profile check/creation skipped.");
+          } else {
+            console.error("Error creating user profile", e);
+          }
         }
       }
       setLoading(false);

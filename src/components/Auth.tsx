@@ -30,7 +30,11 @@ export default function Auth({ onLogin }: { onLogin: () => void }) {
       }
       onLogin();
     } catch (err: any) {
-      setError(err.message);
+      if (err.message && err.message.toLowerCase().includes('network-request-failed')) {
+        setError("Network connection lost. Please check your internet and try again.");
+      } else {
+        setError(err.message);
+      }
     }
   };
 
@@ -51,7 +55,7 @@ export default function Auth({ onLogin }: { onLogin: () => void }) {
       setError(err.message);
       // Reset recaptcha if failed
       if (window.recaptchaVerifier) {
-        window.recaptchaVerifier.clear();
+        (window.recaptchaVerifier as any).clear();
         window.recaptchaVerifier = undefined;
       }
     }
@@ -64,7 +68,11 @@ export default function Auth({ onLogin }: { onLogin: () => void }) {
       await confirmationResult.confirm(code);
       onLogin();
     } catch (err: any) {
-      setError(err.message);
+      if (err.message && err.message.toLowerCase().includes('network-request-failed')) {
+        setError("Network connection lost. Please check your internet and try again.");
+      } else {
+        setError(err.message);
+      }
     }
   };
 

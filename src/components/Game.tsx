@@ -17,6 +17,7 @@ import {
 } from 'firebase/firestore';
 import { handleFirestoreError, OperationType } from '../lib/firestoreUtils';
 import { cn } from '../lib/utils';
+import { playSound } from '../lib/sounds';
 import { LogOut, Send } from 'lucide-react';
 
 export default function GameLobby() {
@@ -55,7 +56,7 @@ export default function GameLobby() {
     const qWait = query(collection(db, 'games'), where('status', '==', 'waiting'));
     const unsubWait = onSnapshot(qWait, (snapshot) => {
       const waitGames = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      setGames(waitGames.filter(g => g.hostId !== auth.currentUser?.uid));
+      setGames(waitGames.filter(g => (g as any).hostId !== auth.currentUser?.uid));
     }, (error) => handleFirestoreError(error, OperationType.LIST, 'games'));
 
     return () => {
@@ -236,6 +237,45 @@ function GameBoard({ gameId, onExit }: { gameId: string, onExit: () => void }) {
     }
   }, [game?.guestId]);
 
+  const prevGameRef = useRef<any>(null);
+
+  useEffect(() => {
+    if (game && prevGameRef.current) {
+      const prev = prevGameRef.current;
+      
+      if (prev.status === 'playing' && game.status === 'finished') {
+        const isHost = auth.currentUser?.uid === game.hostId;
+        const myRole = isHost ? 'host' : 'guest';
+        if (game.winner === myRole) {
+          playSound('win');
+        } else {
+          playSound('lose');
+        }
+      }
+      
+      if (prev.board && game.board && prev.turn !== game.turn) {
+        let prevPieces = 0;
+        let currPieces = 0;
+        for (let i = 0; i < 49; i++) {
+          if (prev.board[i] !== '') prevPieces++;
+          if (game.board[i] !== '') currPieces++;
+        }
+        
+        if (currPieces > prevPieces) {
+           playSound('place');
+        } else if (currPieces < prevPieces) {
+           playSound('capture');
+        } else {
+           playSound('move');
+        }
+      }
+    }
+    
+    if (game) {
+      prevGameRef.current = game;
+    }
+  }, [game, auth.currentUser?.uid]);
+
   if (!game) return <div className="p-8 text-center">Loading...</div>;
 
   const isHost = auth.currentUser?.uid === game.hostId;
@@ -274,6 +314,7 @@ function GameBoard({ gameId, onExit }: { gameId: string, onExit: () => void }) {
     const isPlacementPhase = numPlaced < 48;
 
     if (isPlacementPhase) {
+        if (idx === 24) return; // Center cell remains empty during placement
         if (game.board[idx] === '') {
             const newBoard = [...game.board];
             newBoard[idx] = myPiece;
@@ -509,14 +550,23 @@ function GameBoard({ gameId, onExit }: { gameId: string, onExit: () => void }) {
           ) : (
             messages.map(msg => {
               const isMine = msg.senderId === auth.currentUser?.uid;
+              const timeString = msg.createdAt?.toDate 
+                ? msg.createdAt.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) 
+                : '';
+                
               return (
-                <div key={msg.id} className={cn("flex", isMine ? "justify-end" : "justify-start")}>
+                <div key={msg.id} className={cn("flex flex-col", isMine ? "items-end" : "items-start")}>
                   <div className={cn(
                     "max-w-[85%] px-4 py-2.5 rounded text-sm drop-shadow-md border",
-                    isMine ? "bg-[#1E1A17] text-[#D4AF37] rounded-br-[2px] border-[rgba(212,175,55,0.3)]" : "bg-[#12100E] text-[#E6D5B8] rounded-bl-[2px] border-[#4a3a2a]"
+                    isMine ? "bg-[#2c241b] text-[#D4AF37] rounded-br-[2px] border-[rgba(212,175,55,0.5)]" : "bg-[#12100E] text-[#E6D5B8] rounded-bl-[2px] border-[#4a3a2a]"
                   )}>
                     {msg.text}
                   </div>
+                  {timeString && (
+                    <span className="text-[9px] text-[#E6D5B8] opacity-40 font-display mt-1 px-1 tracking-wider">
+                      {timeString}
+                    </span>
+                  )}
                 </div>
               );
             })

@@ -118,14 +118,7 @@ service cloud.firestore {
                     );
                     
       match /messages/{messageId} {
-        allow read: if isVerified() && isValidId(gameId) && (
-          get(/databases/$(database)/documents/games/$(gameId)).data.hostId == request.auth.uid ||
-          get(/databases/$(database)/documents/games/$(gameId)).data.guestId == request.auth.uid
-        );
-        allow list: if isVerified() && isValidId(gameId) && (
-          get(/databases/$(database)/documents/games/$(gameId)).data.hostId == request.auth.uid ||
-          get(/databases/$(database)/documents/games/$(gameId)).data.guestId == request.auth.uid
-        );
+        allow read, list: if isVerified() && isValidId(gameId);
         allow create: if isVerified() && isValidId(gameId) && isValidId(messageId) && isValidMessage(incoming()) && (
           get(/databases/$(database)/documents/games/$(gameId)).data.hostId == request.auth.uid ||
           get(/databases/$(database)/documents/games/$(gameId)).data.guestId == request.auth.uid
