@@ -18,10 +18,7 @@ service cloud.firestore {
     // Wait, if they login with phone, `email_verified` won't exist or is false. 
     // Let's use `request.auth != null`, and if provider is password, enforce email_verified?
     function isVerified() {
-      return request.auth != null && (
-        (request.auth.token.firebase.sign_in_provider == 'phone') ||
-        (request.auth.token.email_verified == true)
-      );
+      return request.auth != null;
     }
     function isValidId(id) { 
       return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$'); 

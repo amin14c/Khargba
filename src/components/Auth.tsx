@@ -19,14 +19,6 @@ export default function Auth({ onLogin }: { onLogin: () => void }) {
   const [confirmationResult, setConfirmationResult] = useState<any>(null);
   const [error, setError] = useState('');
 
-  useEffect(() => {
-    if (!window.recaptchaVerifier) {
-      window.recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
-        'size': 'invisible',
-      });
-    }
-  }, []);
-
   const handleEmailAuth = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
@@ -46,11 +38,22 @@ export default function Auth({ onLogin }: { onLogin: () => void }) {
     e.preventDefault();
     setError('');
     try {
+      if (!window.recaptchaVerifier) {
+        window.recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
+          'size': 'invisible',
+        });
+      }
       const appVerifier = window.recaptchaVerifier;
       const confirmation = await signInWithPhoneNumber(auth, phone, appVerifier);
       setConfirmationResult(confirmation);
     } catch (err: any) {
+      console.error(err);
       setError(err.message);
+      // Reset recaptcha if failed
+      if (window.recaptchaVerifier) {
+        window.recaptchaVerifier.clear();
+        window.recaptchaVerifier = undefined;
+      }
     }
   };
 
