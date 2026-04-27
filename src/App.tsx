@@ -12,6 +12,7 @@ export default function App() {
   const { t, i18n } = useTranslation();
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [langSelected, setLangSelected] = useState<boolean>(() => !!localStorage.getItem('langSelected'));
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, async (u) => {
@@ -41,6 +42,29 @@ export default function App() {
   const changeLanguage = (lng: string) => {
     i18n.changeLanguage(lng);
   };
+
+  const handleInitialLangSelect = (lng: string) => {
+    changeLanguage(lng);
+    localStorage.setItem('langSelected', 'true');
+    setLangSelected(true);
+  };
+
+  if (!langSelected) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[#FDFBF7] text-[#4A3728] font-serif p-4">
+        <div className="bg-white p-8 rounded-2xl shadow-xl border border-[#E8E2D9] max-w-sm w-full text-center space-y-6">
+          <div className="w-16 h-16 bg-[#8B5E3C] rounded-full flex items-center justify-center text-white text-3xl font-bold mx-auto mb-4 tracking-widest shadow-sm">ⴷ</div>
+          <h2 className="text-xl font-bold uppercase tracking-widest">Select Language</h2>
+          <div className="flex flex-col gap-3">
+             <button onClick={() => handleInitialLangSelect('ar')} className="w-full py-3 bg-[#E8E2D9] rounded-lg font-bold hover:bg-[#8B5E3C] hover:text-white transition-colors">العربية</button>
+             <button onClick={() => handleInitialLangSelect('tzm')} className="w-full py-3 bg-[#E8E2D9] rounded-lg font-bold hover:bg-[#8B5E3C] hover:text-white transition-colors">ⵜⴰⵎⴰⵣⵉⵖⵜ</button>
+             <button onClick={() => handleInitialLangSelect('fr')} className="w-full py-3 bg-[#E8E2D9] rounded-lg font-bold hover:bg-[#8B5E3C] hover:text-white transition-colors">Français</button>
+             <button onClick={() => handleInitialLangSelect('en')} className="w-full py-3 bg-[#E8E2D9] rounded-lg font-bold hover:bg-[#8B5E3C] hover:text-white transition-colors">English</button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (loading) return <div className="min-h-screen flex items-center justify-center bg-[#FDFBF7] text-[#8B5E3C] font-serif">Loading...</div>;
 

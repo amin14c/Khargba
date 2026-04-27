@@ -85,6 +85,15 @@ service cloud.firestore {
              incoming().diff(existing()).affectedKeys().hasOnly(['board', 'turn', 'updatedAt', 'status', 'winner']);
     }
 
+    function isRestartAction() {
+      return existing().status == 'finished' &&
+             incoming().status == 'playing' &&
+             incoming().turn == 'host' &&
+             incoming().winner == '' &&
+             (request.auth.uid == existing().hostId || request.auth.uid == existing().guestId) &&
+             incoming().diff(existing()).affectedKeys().hasOnly(['status', 'turn', 'board', 'winner', 'updatedAt']);
+    }
+
     match /users/{userId} {
       allow get: if isVerified();
       // allow list: if false (users shouldn't query other users generically)
@@ -101,12 +110,11 @@ service cloud.firestore {
       allow create: if isVerified() && isValidId(gameId) && isValidGameCreate(incoming());
       allow update: if isVerified() && isValidId(gameId) &&
                     isValidGameUpdate(incoming()) &&
-                    existing().status != 'finished' && // Terminal state guard
                     incoming().hostId == existing().hostId &&
                     incoming().createdAt == existing().createdAt &&
                     (
-                      isJoinAction() ||
-                      isMoveAction()
+                      (existing().status != 'finished' && (isJoinAction() || isMoveAction())) ||
+                      isRestartAction()
                     );
                     
       match /messages/{messageId} {
