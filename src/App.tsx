@@ -51,32 +51,32 @@ export default function App() {
 
   if (!langSelected) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#FDFBF7] text-[#4A3728] font-serif p-4">
-        <div className="bg-white p-8 rounded-2xl shadow-xl border border-[#E8E2D9] max-w-sm w-full text-center space-y-6">
-          <div className="w-16 h-16 bg-[#8B5E3C] rounded-full flex items-center justify-center text-white text-3xl font-bold mx-auto mb-4 tracking-widest shadow-sm">ⴷ</div>
-          <h2 className="text-xl font-bold uppercase tracking-widest">Select Language</h2>
-          <div className="flex flex-col gap-3">
-             <button onClick={() => handleInitialLangSelect('ar')} className="w-full py-3 bg-[#E8E2D9] rounded-lg font-bold hover:bg-[#8B5E3C] hover:text-white transition-colors">العربية</button>
-             <button onClick={() => handleInitialLangSelect('tzm')} className="w-full py-3 bg-[#E8E2D9] rounded-lg font-bold hover:bg-[#8B5E3C] hover:text-white transition-colors">ⵜⴰⵎⴰⵣⵉⵖⵜ</button>
-             <button onClick={() => handleInitialLangSelect('fr')} className="w-full py-3 bg-[#E8E2D9] rounded-lg font-bold hover:bg-[#8B5E3C] hover:text-white transition-colors">Français</button>
-             <button onClick={() => handleInitialLangSelect('en')} className="w-full py-3 bg-[#E8E2D9] rounded-lg font-bold hover:bg-[#8B5E3C] hover:text-white transition-colors">English</button>
+      <div className="min-h-screen flex items-center justify-center p-4">
+        <div className="luxury-panel p-10 max-w-sm w-full text-center space-y-8">
+          <div className="w-20 h-20 rounded-full flex items-center justify-center text-5xl font-display mb-6 mx-auto border-2 border-[#D4AF37] luxury-text-gold shadow-[0_0_20px_rgba(212,175,55,0.2)]">ⴷ</div>
+          <h2 className="text-xl font-bold uppercase tracking-[0.2em] luxury-text-gold font-display">Select Language</h2>
+          <div className="flex flex-col gap-4">
+             <button onClick={() => handleInitialLangSelect('ar')} className="luxury-btn w-full py-3 rounded text-sm font-bold opacity-90 hover:opacity-100">العربية</button>
+             <button onClick={() => handleInitialLangSelect('tzm')} className="luxury-btn w-full py-3 rounded text-sm font-bold opacity-90 hover:opacity-100">ⵜⴰⵎⴰⵣⵉⵖⵜ</button>
+             <button onClick={() => handleInitialLangSelect('fr')} className="luxury-btn w-full py-3 rounded text-sm font-bold opacity-90 hover:opacity-100">Français</button>
+             <button onClick={() => handleInitialLangSelect('en')} className="luxury-btn w-full py-3 rounded text-sm font-bold opacity-90 hover:opacity-100">English</button>
           </div>
         </div>
       </div>
     );
   }
 
-  if (loading) return <div className="min-h-screen flex items-center justify-center bg-[#FDFBF7] text-[#8B5E3C] font-serif">Loading...</div>;
+  if (loading) return <div className="min-h-screen flex items-center justify-center font-display luxury-text-gold tracking-[0.2em] uppercase">Loading...</div>;
 
   return (
-    <div className="min-h-screen bg-[#FDFBF7] text-[#4A3728] font-serif flex flex-col">
+    <div className="min-h-screen flex flex-col font-serif">
       {/* Header Section */}
-      <header className="flex justify-between items-center px-6 py-6 border-b border-[#E8E2D9]">
+      <header className="flex justify-between items-center px-6 py-6 border-b border-[rgba(212,175,55,0.15)] bg-black/20 backdrop-blur-sm">
         <div className="flex items-center gap-4">
-          <div className="w-12 h-12 bg-[#8B5E3C] rounded-full flex items-center justify-center text-white text-2xl font-bold shadow-sm">ⴷ</div>
+          <div className="w-12 h-12 rounded-full flex items-center justify-center text-3xl font-display border border-[#D4AF37] luxury-text-gold shadow-sm">ⴷ</div>
           <div>
-            <h1 className="text-xl md:text-2xl font-bold tracking-tight uppercase">ⴷⴰⵎⴰ ⵏ ⵜⵉⵏⵉ / داما النواة</h1>
-            <p className="text-[10px] md:text-xs uppercase tracking-widest opacity-60">Desert Strategy • 7x7 Tactical Board</p>
+            <h1 className="text-xl md:text-2xl font-bold tracking-widest uppercase font-display luxury-text-gold">ⴷⴰⵎⴰ ⵏ ⵜⵉⵏⵉ / داما النواة</h1>
+            <p className="text-[10px] md:text-xs uppercase tracking-[0.3em] font-display text-[#D4AF37] opacity-60 mt-1">Desert Strategy • 7x7 Tactical Board</p>
           </div>
         </div>
         
@@ -84,21 +84,21 @@ export default function App() {
           <select 
             value={i18n.language} 
             onChange={(e) => changeLanguage(e.target.value)}
-            className="bg-transparent text-[#8B5E3C] font-bold outline-none cursor-pointer hidden md:block uppercase tracking-wider text-xs"
+            className="bg-transparent text-[#D4AF37] outline-none cursor-pointer hidden md:block uppercase tracking-widest text-xs font-display"
           >
-            <option value="en">English</option>
-            <option value="fr">Français</option>
-            <option value="ar">العربية</option>
-            <option value="tzm">ⵜⴰⵎⴰⵣⵉⵖⵜ</option>
+            <option value="en" className="bg-[#12100E]">English</option>
+            <option value="fr" className="bg-[#12100E]">Français</option>
+            <option value="ar" className="bg-[#12100E]">العربية</option>
+            <option value="tzm" className="bg-[#12100E]">ⵜⴰⵎⴰⵣⵉⵖⵜ</option>
           </select>
           {user && (
             <button 
               onClick={() => signOut(auth)}
-              className="px-3 py-1 bg-[#E8E2D9] text-[#4A3728] rounded-md hover:bg-[#D9D1C5] transition flex items-center gap-2"
+              className="luxury-btn px-4 py-2 rounded flex items-center gap-2 text-[10px]"
               title={t('logout')}
             >
               <LogOut size={16} />
-              <span className="hidden md:inline uppercase text-[10px] font-bold">{t('logout')}</span>
+              <span className="hidden md:inline uppercase font-bold tracking-widest">Logout</span>
             </button>
           )}
         </nav>
@@ -113,7 +113,7 @@ export default function App() {
       </main>
 
       {/* Bottom Branding (Footer) */}
-      <footer className="h-12 bg-[#4A3728] flex items-center px-10 text-white/40 text-[10px] tracking-[0.2em] uppercase mt-auto">
+      <footer className="h-16 flex items-center justify-center px-10 text-[#D4AF37] opacity-40 text-[10px] font-display tracking-[0.3em] uppercase mt-auto border-t border-[rgba(212,175,55,0.1)] bg-black/20">
         Sahara Dama Online © 2026 • Rocks & Seeds Edition
       </footer>
     </div>

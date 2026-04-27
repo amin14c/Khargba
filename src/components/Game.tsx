@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
+import { motion } from 'motion/react';
 import { db, auth } from '../firebase/config';
 import { 
   doc, 
@@ -66,11 +67,7 @@ export default function GameLobby() {
 
   const createGame = async () => {
     if (!auth.currentUser) return;
-    const initialBoard = [
-      ...Array(24).fill('1'),
-      '', 
-      ...Array(24).fill('2')
-    ];
+    const initialBoard = Array(49).fill('');
     
     const gameId = Math.random().toString(36).substring(2, 10);
     const gameRef = doc(db, 'games', gameId);
@@ -116,32 +113,35 @@ export default function GameLobby() {
   }
 
   return (
-    <div className="w-full flex-1 flex flex-col gap-6 max-w-md mx-auto mt-4">
-      <div className="bg-[#8B5E3C] p-6 rounded-2xl text-white shadow-lg">
-        <h3 className="text-lg font-bold mb-4 uppercase tracking-wider">Start a Match</h3>
+    <div className="w-full flex-1 flex flex-col gap-6 max-w-md mx-auto mt-4 font-serif">
+      <div className="luxury-panel p-8 text-center space-y-4">
+        <h3 className="text-xl font-display font-bold uppercase tracking-widest luxury-text-gold">Start a Match</h3>
+        <p className="text-[10px] uppercase font-sans tracking-widest text-[#E6D5B8] opacity-60">
+          Create a new session and wait for a challenger
+        </p>
         <button 
           onClick={createGame}
-          className="w-full bg-[#FDFBF7] text-[#8B5E3C] font-bold py-3 rounded-lg text-sm uppercase tracking-wider hover:bg-white transition-colors"
+          className="luxury-btn-primary w-full py-4 mt-2 rounded-[4px] text-xs font-display"
         >
           {t('create_game')}
         </button>
       </div>
 
-      <div className="bg-white p-6 rounded-2xl border border-[#E8E2D9] shadow-sm">
-        <h3 className="text-sm font-bold uppercase tracking-wider mb-4 border-b border-[#F4EFE6] pb-2 text-[#4A3728]">{t('available_games')}</h3>
+      <div className="luxury-panel p-6 flex flex-col pt-8">
+        <h3 className="text-sm font-display font-bold uppercase tracking-[0.2em] mb-4 pb-3 border-b border-[rgba(212,175,55,0.15)] luxury-text-gold">{t('available_games')}</h3>
         {games.length === 0 ? (
-          <p className="text-[#4A3728] opacity-60 text-sm italic">{t('no_games')}</p>
+          <p className="text-[#E6D5B8] opacity-40 text-xs italic tracking-wide text-center py-4">{t('no_games')}</p>
         ) : (
-          <div className="space-y-3">
+          <div className="space-y-3 mt-2">
             {games.map(game => (
-              <div key={game.id} className="flex justify-between items-center p-3 bg-[#FDFBF7] rounded-lg border border-[#E8E2D9] hover:border-[#8B5E3C] transition-colors">
-                <div className="flex items-center gap-3">
-                  <div className="w-2 h-2 rounded-full bg-green-500"></div>
-                  <span className="text-sm font-semibold text-[#4A3728]">Game {game.id}</span>
+              <div key={game.id} className="flex justify-between items-center p-4 bg-[#12100E]/50 rounded-[4px] border border-[rgba(212,175,55,0.2)] hover:border-[#D4AF37] transition-colors">
+                <div className="flex items-center gap-4">
+                  <div className="w-2 h-2 rounded-full bg-[#D4AF37] shadow-[0_0_8px_#D4AF37]"></div>
+                  <span className="text-sm font-bold text-[#E6D5B8] uppercase tracking-widest font-display">Session {game.id}</span>
                 </div>
                 <button 
                   onClick={() => joinGame(game.id)}
-                  className="text-[10px] bg-[#8B5E3C] text-white px-3 py-1.5 rounded uppercase tracking-wider font-bold hover:bg-[#7A5234]"
+                  className="luxury-btn px-4 py-2 rounded-[2px] text-[10px]"
                 >
                   {t('join_game')}
                 </button>
@@ -152,14 +152,17 @@ export default function GameLobby() {
       </div>
 
       {/* Stats Micro-Footer from design */}
-      <div className="mt-auto flex flex-col gap-2 pt-8">
-        <div className="flex justify-around bg-[#E8E2D9] rounded-xl py-3 text-center text-[#4A3728]">
+      <div className="mt-auto flex flex-col gap-3 py-6">
+        <div className="flex justify-around items-center bg-[#12100E] border border-[rgba(212,175,55,0.15)] rounded-lg py-4 text-center">
           <div>
-            <p className="text-[10px] uppercase font-bold opacity-60">Status</p>
-            <p className="text-lg font-bold">Online</p>
+            <p className="text-[9px] uppercase font-bold text-[#D4AF37] opacity-60 font-display tracking-[0.2em]">Network Status</p>
+            <p className="text-sm font-bold text-[#E6D5B8] uppercase tracking-widest mt-1 shadow-sm flex items-center justify-center gap-2">
+              <span className="block w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+              Synchronized
+            </p>
           </div>
         </div>
-        <p className="text-[9px] text-center opacity-40 uppercase text-[#4A3728]">Built for enthusiasts of cultural gaming heritage.</p>
+        <p className="text-[9px] text-center opacity-40 uppercase tracking-[0.25em] text-[#D4AF37] font-display">Built for enthusiasts of cultural gaming heritage.</p>
       </div>
     </div>
   );
@@ -254,18 +257,6 @@ function GameBoard({ gameId, onExit }: { gameId: string, onExit: () => void }) {
       }
     });
 
-    // Capture logic (jump over one opponent piece)
-    directions.forEach(([dr, dc]) => {
-      const nr = r + dr, nc = c + dc;
-      const jn = r + 2*dr, jc = c + 2*dc;
-      if (nr >= 0 && nr < 7 && nc >= 0 && nc < 7 && jn >= 0 && jn < 7 && jc >= 0 && jc < 7) {
-        const nIdx = nr * 7 + nc;
-        const jIdx = jn * 7 + jc;
-        const opp = isHost ? '2' : '1';
-        if (board[nIdx] === opp && board[jIdx] === '') moves.push(jIdx);
-      }
-    });
-
     return moves;
   };
 
@@ -273,59 +264,97 @@ function GameBoard({ gameId, onExit }: { gameId: string, onExit: () => void }) {
     if (!isMyTurn || game.status !== 'playing') return;
 
     const myPiece = isHost ? '1' : '2';
+    
+    // Count pieces on board
+    let numPlaced = 0;
+    for (let i = 0; i < game.board.length; i++) {
+        if (game.board[i] !== '') numPlaced++;
+    }
 
-    if (game.board[idx] === myPiece) {
-      setSelectedIdx(idx);
-    } else if (selectedIdx !== null && game.board[idx] === '') {
-      const validMoves = getValidMoves(selectedIdx, game.board);
-      if (validMoves.includes(idx)) {
-        const newBoard = [...game.board];
-        newBoard[idx] = myPiece;
-        newBoard[selectedIdx] = '';
+    const isPlacementPhase = numPlaced < 48;
 
-        // Check if it was a capture
-        const r1 = Math.floor(selectedIdx / 7), c1 = selectedIdx % 7;
-        const r2 = Math.floor(idx / 7), c2 = Math.floor(idx % 7);
-        if (Math.abs(r1-r2) === 2 || Math.abs(c1-c2) === 2) {
-          const mr = (r1+r2)/2;
-          const mc = (c1+c2)/2;
-          newBoard[mr*7 + mc] = '';
+    if (isPlacementPhase) {
+        if (game.board[idx] === '') {
+            const newBoard = [...game.board];
+            newBoard[idx] = myPiece;
+            const newTurn = isHost ? 'guest' : 'host';
+            try {
+              await updateDoc(doc(db, 'games', gameId), {
+                board: newBoard,
+                turn: newTurn,
+                updatedAt: serverTimestamp()
+              });
+            } catch (error) {
+              handleFirestoreError(error, OperationType.UPDATE, `games/${gameId}`);
+            }
         }
-
-        const newTurn = isHost ? 'guest' : 'host';
-        
-        // Simple win check
-        const oppPiece = isHost ? '2' : '1';
-        const hasOppPieces = newBoard.includes(oppPiece);
-        const status = hasOppPieces ? 'playing' : 'finished';
-        const winner = hasOppPieces ? '' : (isHost ? 'host' : 'guest');
-
-        try {
-          await updateDoc(doc(db, 'games', gameId), {
-            board: newBoard,
-            turn: newTurn,
-            status,
-            winner,
-            updatedAt: serverTimestamp()
-          });
-          setSelectedIdx(null);
-        } catch (error) {
-          handleFirestoreError(error, OperationType.UPDATE, `games/${gameId}`);
-        }
-      } else {
-        setSelectedIdx(null);
-      }
     } else {
-      setSelectedIdx(null);
+        // Movement phase
+        if (game.board[idx] === myPiece) {
+          setSelectedIdx(idx);
+        } else if (selectedIdx !== null && game.board[idx] === '') {
+          const validMoves = getValidMoves(selectedIdx, game.board);
+          if (validMoves.includes(idx)) {
+            const newBoard = [...game.board];
+            newBoard[idx] = myPiece;
+            newBoard[selectedIdx] = '';
+
+            // Sandwich capture logic
+            const oppPiece = isHost ? '2' : '1';
+            const r = Math.floor(idx / 7);
+            const c = idx % 7;
+
+            // Up
+            if (r >= 2 && newBoard[(r-1)*7 + c] === oppPiece && newBoard[(r-2)*7 + c] === myPiece) {
+              newBoard[(r-1)*7 + c] = '';
+            }
+            // Down
+            if (r <= 4 && newBoard[(r+1)*7 + c] === oppPiece && newBoard[(r+2)*7 + c] === myPiece) {
+              newBoard[(r+1)*7 + c] = '';
+            }
+            // Left
+            if (c >= 2 && newBoard[r*7 + (c-1)] === oppPiece && newBoard[r*7 + (c-2)] === myPiece) {
+              newBoard[r*7 + (c-1)] = '';
+            }
+            // Right
+            if (c <= 4 && newBoard[r*7 + (c+1)] === oppPiece && newBoard[r*7 + (c+2)] === myPiece) {
+              newBoard[r*7 + (c+1)] = '';
+            }
+
+            const newTurn = isHost ? 'guest' : 'host';
+            
+            // Win check: opponent has <= 1 piece left
+            let oppCount = 0;
+            for (let i = 0; i < 49; i++) {
+              if (newBoard[i] === oppPiece) oppCount++;
+            }
+            
+            const status = oppCount <= 1 ? 'finished' : 'playing';
+            const winner = oppCount <= 1 ? (isHost ? 'host' : 'guest') : '';
+
+            try {
+              await updateDoc(doc(db, 'games', gameId), {
+                board: newBoard,
+                turn: newTurn,
+                status,
+                winner,
+                updatedAt: serverTimestamp()
+              });
+              setSelectedIdx(null);
+            } catch (error) {
+              handleFirestoreError(error, OperationType.UPDATE, `games/${gameId}`);
+            }
+          } else {
+            setSelectedIdx(null);
+          }
+        } else {
+          setSelectedIdx(null);
+        }
     }
   };
 
   const handlePlayAgain = async () => {
-    const initialBoard = [
-      ...Array(24).fill('1'),
-      '', 
-      ...Array(24).fill('2')
-    ];
+    const initialBoard = Array(49).fill('');
     try {
       await updateDoc(doc(db, 'games', gameId), {
         status: 'playing',
@@ -351,24 +380,34 @@ function GameBoard({ gameId, onExit }: { gameId: string, onExit: () => void }) {
         key={idx}
         onClick={() => handleCellClick(idx)}
         className={cn(
-          "w-full pt-[100%] relative cursor-pointer",
-          isEven ? "bg-[#FDFBF7]" : "bg-[#D9D1C5]"
+          "w-full pt-[100%] relative cursor-pointer outline-none transition-all duration-300",
+          isEven ? "board-cell-light hover:brightness-110 hover:shadow-[inset_0_0_15px_rgba(212,175,55,0.4)]" : "board-cell-dark hover:brightness-110 hover:shadow-[inset_0_0_20px_rgba(212,175,55,0.4)]"
         )}
       >
         <div className="absolute inset-0 flex items-center justify-center">
           {content === '1' && (
-            <div className={cn(
-              "w-[75%] h-[75%] bg-stone-400 rounded-lg shadow-md border-b-4 border-stone-600 transition-transform",
-              isSelected ? "ring-2 ring-offset-2 ring-[#8B5E3C] scale-105" : ""
+            <motion.div 
+              layout
+              initial={{ scale: 0, opacity: 0 }}
+              animate={{ scale: isSelected ? 1.05 : 1, opacity: 1 }}
+              transition={{ type: 'spring', stiffness: 400, damping: 25 }}
+              className={cn(
+              "w-[75%] h-[75%] piece-host",
+              isSelected ? "ring-2 ring-offset-2 ring-offset-[#5a452a] ring-[#D4AF37]" : ""
             )}>
-            </div> // Rock
+            </motion.div>
           )}
           {content === '2' && (
-            <div className={cn(
-              "w-[35%] h-[75%] bg-[#3E2723] rounded-full shadow-md border-l-2 border-[#5D4037] transition-transform",
-              isSelected ? "ring-2 ring-offset-2 ring-[#8B5E3C] scale-105" : ""
+            <motion.div 
+              layout
+              initial={{ scale: 0, opacity: 0 }}
+              animate={{ scale: isSelected ? 1.05 : 1, opacity: 1 }}
+              transition={{ type: 'spring', stiffness: 400, damping: 25 }}
+              className={cn(
+              "w-[45%] h-[45%] piece-guest",
+              isSelected ? "ring-2 ring-offset-2 ring-offset-[#5a452a] ring-[#D4AF37]" : ""
             )}>
-            </div> // Date pit
+            </motion.div>
           )}
         </div>
       </div>
@@ -376,53 +415,56 @@ function GameBoard({ gameId, onExit }: { gameId: string, onExit: () => void }) {
   };
 
   return (
-    <div className="flex-1 flex flex-col items-center gap-6 w-full max-w-2xl mx-auto mt-4">
+    <div className="flex-1 flex flex-col items-center gap-6 w-full max-w-2xl mx-auto mt-4 font-serif">
       {/* Game info header */}
-      <div className="flex justify-between items-center w-full bg-white p-4 rounded-xl border border-[#E8E2D9] shadow-sm">
+      <div className="flex justify-between items-center w-full luxury-panel p-4">
         <div>
-          <h2 className="text-sm font-bold uppercase tracking-wider text-[#4A3728]">{t('app_name')}</h2>
-          <div className="text-[10px] text-[#4A3728] opacity-60 uppercase font-bold tracking-widest mt-1">
+          <h2 className="text-sm font-display font-bold uppercase tracking-[0.2em] luxury-text-gold">{t('app_name')}</h2>
+          <div className="text-[10px] text-[#E6D5B8] opacity-60 uppercase font-bold tracking-[0.3em] mt-1 font-display">
             {isHost ? t('rocks') : t('date_pits')}
           </div>
         </div>
-        <button onClick={onExit} className="px-3 py-1 bg-[#E8E2D9] text-[#4A3728] rounded text-[10px] uppercase font-bold hover:bg-[#D9D1C5]">
-          Exit Game
+        <button onClick={onExit} className="luxury-btn px-4 py-2 rounded-[2px] text-[10px] tracking-widest font-bold">
+          Exit Room
         </button>
       </div>
 
-      <div className="bg-white p-4 w-full rounded-xl border border-[#E8E2D9] shadow-sm text-center flex flex-col gap-3">
-        <div className="flex justify-between w-full items-center">
-          <div className={cn("text-xs font-bold uppercase tracking-widest flex flex-col items-start gap-1", game.turn === 'host' ? "text-[#8B5E3C]" : "text-[#4A3728] opacity-60")}>
-            <span>{hostName}</span>
-            <span className="text-[9px] px-2 py-0.5 bg-[#E8E2D9] rounded">{t('rocks')}</span>
+      <div className="luxury-panel p-6 w-full text-center flex flex-col gap-4 relative overflow-hidden">
+        {/* Subtle background glow */}
+        <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-32 h-32 bg-[#D4AF37] opacity-[0.03] blur-3xl rounded-full"></div>
+        
+        <div className="flex justify-between w-full flex-wrap items-center relative z-10">
+          <div className="flex flex-col items-start gap-1">
+            <span className={cn("text-xs md:text-sm font-display font-bold uppercase tracking-widest", game.turn === 'host' ? "text-[#E6D5B8] drop-shadow-[0_0_8px_rgba(255,255,255,0.3)]" : "text-[#D4AF37] opacity-60")}>{hostName}</span>
+            <span className="text-[9px] px-2 py-0.5 border border-[#4a3a2a] text-[#E6D5B8] opacity-80 uppercase tracking-widest rounded bg-[#12100E] font-display">{t('rocks')}</span>
           </div>
-          <div className="text-[10px] font-bold text-[#4A3728] opacity-40 uppercase tracking-widest">VS</div>
-          <div className={cn("text-xs font-bold uppercase tracking-widest flex flex-col items-end gap-1", game.turn === 'guest' ? "text-[#8B5E3C]" : "text-[#4A3728] opacity-60")}>
-            <span>{game.guestId ? guestName : 'Waiting...'}</span>
-            <span className="text-[9px] px-2 py-0.5 bg-[#E8E2D9] rounded">{t('date_pits')}</span>
+          <div className="text-[11px] font-bold luxury-text-gold uppercase tracking-[0.4em] font-display">VS</div>
+          <div className="flex flex-col items-end gap-1">
+            <span className={cn("text-xs md:text-sm font-display font-bold uppercase tracking-widest", game.turn === 'guest' ? "text-[#E6D5B8] drop-shadow-[0_0_8px_rgba(255,255,255,0.3)]" : "text-[#D4AF37] opacity-60")}>{game.guestId ? guestName : 'Waiting...'}</span>
+            <span className="text-[9px] px-2 py-0.5 border border-[#4a3a2a] text-[#E6D5B8] opacity-80 uppercase tracking-widest rounded bg-[#12100E] font-display">{t('date_pits')}</span>
           </div>
         </div>
 
-        <div className="w-full h-px bg-[#E8E2D9]"></div>
+        <div className="w-full h-px bg-[rgba(212,175,55,0.15)] my-2"></div>
 
         {game.status === 'waiting' && (
-          <p className="text-[#8B5E3C] animate-pulse font-bold text-sm uppercase tracking-wider">
+          <p className="luxury-text-gold animate-pulse font-display text-sm md:text-base uppercase tracking-[0.2em]">
             {t('waiting_for_opponent')}
           </p>
         )}
         {game.status === 'playing' && (
-          <p className={cn("text-lg font-bold uppercase tracking-widest", isMyTurn ? "text-[#8B5E3C]" : "text-[#4A3728] opacity-60")}>
+          <p className={cn("text-base md:text-lg font-display uppercase tracking-[0.2em] drop-shadow-md", isMyTurn ? "luxury-text-gold font-bold" : "text-[#E6D5B8] opacity-50")}>
             {isMyTurn ? t('your_turn') : t('opponent_turn')}
           </p>
         )}
         {game.status === 'finished' && (
-          <div className="flex flex-col items-center gap-3">
-            <p className={cn("text-xl font-bold uppercase tracking-widest", game.winner === (isHost ? 'host' : 'guest') ? "text-emerald-600" : "text-red-700")}>
+          <div className="flex flex-col items-center gap-4">
+            <p className={cn("text-xl md:text-2xl font-display font-bold uppercase tracking-[0.3em] drop-shadow-lg", game.winner === (isHost ? 'host' : 'guest') ? "text-[#D4AF37]" : "text-red-900/80")}>
               {game.winner === (isHost ? 'host' : 'guest') ? t('you_win') : t('you_lose')}
             </p>
             <button 
               onClick={handlePlayAgain}
-              className="bg-[#8B5E3C] text-white px-4 py-2 rounded font-bold uppercase text-[10px] tracking-wider hover:bg-[#7A5234]"
+              className="luxury-btn-primary px-8 py-3 rounded-[4px] text-xs"
             >
               Play Again
             </button>
@@ -431,47 +473,47 @@ function GameBoard({ gameId, onExit }: { gameId: string, onExit: () => void }) {
       </div>
 
       {/* Board Container */}
-      <div className="w-full flex justify-center">
-        <div className="w-full max-w-[400px]">
-          <div className="bg-[#E8E2D9] p-2 md:p-4 rounded-xl shadow-xl border-4 border-[#D9D1C5]">
-            <div className="grid grid-cols-7 gap-[2px] md:gap-1 bg-[#4A3728]">
+      <div className="w-full flex justify-center py-4">
+        <div className="w-full max-w-[420px]">
+          <div className="board-outer">
+            <div className="grid grid-cols-7 gap-0 border-4 board-grid">
               {Array(49).fill(null).map((_, i) => renderCell(i))}
             </div>
           </div>
           
-          <div className="flex justify-between w-full text-[10px] md:text-xs font-bold opacity-70 uppercase tracking-widest mt-4 px-2 text-[#4A3728]">
-            <span>Board Grid: 7 x 7</span>
-            <span>{isMyTurn ? "Your Turn" : "Wait"}</span>
+          <div className="flex justify-between w-full text-[10px] md:text-xs font-display font-bold uppercase tracking-[0.3em] mt-8 px-2 text-[#D4AF37] opacity-70">
+            <span>Grid: 7 x 7</span>
+            <span>{isMyTurn ? "Action Req" : "Standby"}</span>
           </div>
         </div>
       </div>
       
       {/* Legend */}
-      <div className="flex justify-center space-x-8 mt-2">
-        <div className="flex items-center space-x-3">
-           <div className="w-5 h-5 bg-stone-400 rounded shadow-sm border-b-2 border-stone-600"></div>
-           <span className="text-[10px] uppercase font-bold text-[#4A3728] tracking-wider">{t('rocks')}</span>
+      <div className="flex justify-center space-x-10 mt-2 px-6 py-4 luxury-panel">
+        <div className="flex items-center space-x-4">
+           <div className="w-6 h-6 piece-host"></div>
+           <span className="text-[10px] uppercase font-bold text-[#E6D5B8] tracking-[0.2em] font-display">{t('rocks')}</span>
         </div>
-        <div className="flex items-center space-x-3">
-           <div className="w-3 h-5 bg-[#3E2723] rounded-full shadow-sm border-l border-[#5D4037]"></div>
-           <span className="text-[10px] uppercase font-bold text-[#4A3728] tracking-wider">{t('date_pits')}</span>
+        <div className="flex items-center space-x-4">
+           <div className="w-4 h-4 piece-guest"></div>
+           <span className="text-[10px] uppercase font-bold text-[#E6D5B8] tracking-[0.2em] font-display">{t('date_pits')}</span>
         </div>
       </div>
 
       {/* Chat Feature */}
-      <div className="w-full bg-white p-4 rounded-xl border border-[#E8E2D9] shadow-sm flex flex-col h-64 mt-4">
-        <h3 className="text-[10px] uppercase font-bold tracking-wider text-[#4A3728] border-b border-[#F4EFE6] pb-2 mb-2">Match Chat</h3>
-        <div ref={chatRef} className="flex-1 overflow-y-auto space-y-2 pr-2">
+      <div className="w-full luxury-panel flex flex-col h-72 my-4">
+        <h3 className="text-[10px] font-display uppercase font-bold tracking-[0.25em] luxury-text-gold border-b border-[rgba(212,175,55,0.15)] pb-4 pt-5 px-6 m-0">Room Ledger</h3>
+        <div ref={chatRef} className="flex-1 overflow-y-auto space-y-3 px-6 py-4">
           {messages.length === 0 ? (
-            <p className="text-xs text-center italic text-[#4A3728] opacity-50 mt-4">No messages yet. Say Assalamu alaikum!</p>
+            <p className="text-xs text-center text-[#E6D5B8] opacity-40 mt-4 font-display uppercase tracking-widest leading-loose">The records are empty.<br/>Speak, traveler.</p>
           ) : (
             messages.map(msg => {
               const isMine = msg.senderId === auth.currentUser?.uid;
               return (
                 <div key={msg.id} className={cn("flex", isMine ? "justify-end" : "justify-start")}>
                   <div className={cn(
-                    "max-w-[80%] px-3 py-2 rounded-lg text-sm",
-                    isMine ? "bg-[#8B5E3C] text-white rounded-br-none" : "bg-[#E8E2D9] text-[#4A3728] rounded-bl-none"
+                    "max-w-[85%] px-4 py-2.5 rounded text-sm drop-shadow-md border",
+                    isMine ? "bg-[#1E1A17] text-[#D4AF37] rounded-br-[2px] border-[rgba(212,175,55,0.3)]" : "bg-[#12100E] text-[#E6D5B8] rounded-bl-[2px] border-[#4a3a2a]"
                   )}>
                     {msg.text}
                   </div>
@@ -480,19 +522,19 @@ function GameBoard({ gameId, onExit }: { gameId: string, onExit: () => void }) {
             })
           )}
         </div>
-        <form onSubmit={sendMessage} className="mt-3 flex gap-2">
+        <form onSubmit={sendMessage} className="p-4 border-t border-[rgba(212,175,55,0.15)] bg-black/20 flex gap-3">
           <input 
             type="text" 
             value={chatText}
             onChange={e => setChatText(e.target.value)}
             disabled={game.status === 'waiting'}
-            placeholder={game.status === 'waiting' ? "Waiting for opponent..." : "Type a message..."}
-            className="flex-1 px-3 py-2 bg-[#FDFBF7] border border-[#E8E2D9] rounded-lg text-sm focus:outline-none focus:border-[#8B5E3C]"
+            placeholder={game.status === 'waiting' ? "Waiting for opponent..." : "Inscribe a message..."}
+            className="flex-1 px-4 py-2 bg-[#12100E] border border-[#4a3a2a] rounded-[4px] text-sm text-[#E6D5B8] placeholder:text-[#E6D5B8]/40 focus:outline-none focus:border-[#D4AF37] focus:ring-1 focus:ring-[#D4AF37] disabled:opacity-50"
           />
           <button 
             type="submit" 
             disabled={!chatText.trim() || game.status === 'waiting'}
-            className="bg-[#8B5E3C] text-white p-2 rounded-lg disabled:opacity-50 hover:bg-[#7A5234]"
+            className="luxury-btn-primary px-4 py-2 rounded-[4px] disabled:opacity-50"
           >
             <Send size={18} />
           </button>
