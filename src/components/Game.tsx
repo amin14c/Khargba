@@ -81,6 +81,7 @@ export default function GameLobby() {
         turn: 'host',
         board: initialBoard,
         winner: '',
+        phase: 'placement',
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp()
       });
@@ -311,7 +312,7 @@ function GameBoard({ gameId, onExit }: { gameId: string, onExit: () => void }) {
         if (game.board[i] !== '') numPlaced++;
     }
 
-    const isPlacementPhase = numPlaced < 48;
+    const isPlacementPhase = game.phase === 'placement' || (game.phase === undefined && numPlaced < 48);
 
     if (isPlacementPhase) {
         if (idx === 24) return; // Center cell remains empty during placement
@@ -319,11 +320,23 @@ function GameBoard({ gameId, onExit }: { gameId: string, onExit: () => void }) {
             const newBoard = [...game.board];
             newBoard[idx] = myPiece;
             const newTurn = isHost ? 'guest' : 'host';
-            try {
-              await updateDoc(doc(db, 'games', gameId), {
+            const isLastPlacement = numPlaced === 47;
+            
+            const updates: any = {
                 board: newBoard,
                 turn: newTurn,
                 updatedAt: serverTimestamp()
+            };
+            
+            if (isLastPlacement) {
+                updates.phase = 'movement';
+            }
+
+            setGame((prev: any) => ({ ...prev, board: newBoard, turn: newTurn, phase: updates.phase || prev.phase }));
+
+            try {
+              updateDoc(doc(db, 'games', gameId), updates).catch(error => {
+                handleFirestoreError(error, OperationType.UPDATE, `games/${gameId}`);
               });
             } catch (error) {
               handleFirestoreError(error, OperationType.UPDATE, `games/${gameId}`);
@@ -344,25 +357,54 @@ function GameBoard({ gameId, onExit }: { gameId: string, onExit: () => void }) {
             const oppPiece = isHost ? '2' : '1';
             const r = Math.floor(idx / 7);
             const c = idx % 7;
+            
+            let capturedSomething = false;
 
             // Up
             if (r >= 2 && newBoard[(r-1)*7 + c] === oppPiece && newBoard[(r-2)*7 + c] === myPiece) {
               newBoard[(r-1)*7 + c] = '';
+              capturedSomething = true;
             }
             // Down
             if (r <= 4 && newBoard[(r+1)*7 + c] === oppPiece && newBoard[(r+2)*7 + c] === myPiece) {
               newBoard[(r+1)*7 + c] = '';
+              capturedSomething = true;
             }
             // Left
             if (c >= 2 && newBoard[r*7 + (c-1)] === oppPiece && newBoard[r*7 + (c-2)] === myPiece) {
               newBoard[r*7 + (c-1)] = '';
+              capturedSomething = true;
             }
             // Right
             if (c <= 4 && newBoard[r*7 + (c+1)] === oppPiece && newBoard[r*7 + (c+2)] === myPiece) {
               newBoard[r*7 + (c+1)] = '';
+              capturedSomething = true;
             }
 
-            const newTurn = isHost ? 'guest' : 'host';
+            let newTurn = isHost ? 'guest' : 'host';
+            
+            if (capturedSomething) {
+              let canCapture = false;
+              for (let i = 0; i < 49; i++) {
+                if (newBoard[i] === myPiece) {
+                  const tempMoves = getValidMoves(i, newBoard);
+                  for (const move of tempMoves) {
+                    const tempBoard = [...newBoard];
+                    tempBoard[move] = myPiece;
+                    tempBoard[i] = '';
+                    const tr = Math.floor(move / 7);
+                    const tc = move % 7;
+                    if (tr >= 2 && tempBoard[(tr-1)*7 + tc] === oppPiece && tempBoard[(tr-2)*7 + tc] === myPiece) canCapture = true;
+                    if (tr <= 4 && tempBoard[(tr+1)*7 + tc] === oppPiece && tempBoard[(tr+2)*7 + tc] === myPiece) canCapture = true;
+                    if (tc >= 2 && tempBoard[tr*7 + (tc-1)] === oppPiece && tempBoard[tr*7 + (tc-2)] === myPiece) canCapture = true;
+                    if (tc <= 4 && tempBoard[tr*7 + (tc+1)] === oppPiece && tempBoard[tr*7 + (tc+2)] === myPiece) canCapture = true;
+                  }
+                }
+              }
+              if (canCapture) {
+                newTurn = game.turn;
+              }
+            }
             
             // Win check: opponent has <= 1 piece left
             let oppCount = 0;
@@ -373,15 +415,19 @@ function GameBoard({ gameId, onExit }: { gameId: string, onExit: () => void }) {
             const status = oppCount <= 1 ? 'finished' : 'playing';
             const winner = oppCount <= 1 ? (isHost ? 'host' : 'guest') : '';
 
+            setSelectedIdx(null);
+            setGame((prev: any) => ({ ...prev, board: newBoard, turn: newTurn, status, winner }));
+            
             try {
-              await updateDoc(doc(db, 'games', gameId), {
+              updateDoc(doc(db, 'games', gameId), {
                 board: newBoard,
                 turn: newTurn,
                 status,
                 winner,
                 updatedAt: serverTimestamp()
+              }).catch(error => {
+                handleFirestoreError(error, OperationType.UPDATE, `games/${gameId}`);
               });
-              setSelectedIdx(null);
             } catch (error) {
               handleFirestoreError(error, OperationType.UPDATE, `games/${gameId}`);
             }
@@ -396,13 +442,19 @@ function GameBoard({ gameId, onExit }: { gameId: string, onExit: () => void }) {
 
   const handlePlayAgain = async () => {
     const initialBoard = Array(49).fill('');
+    
+    setGame((prev: any) => ({ ...prev, status: 'playing', turn: 'host', board: initialBoard, winner: '', phase: 'placement' }));
+    
     try {
-      await updateDoc(doc(db, 'games', gameId), {
+      updateDoc(doc(db, 'games', gameId), {
         status: 'playing',
         turn: 'host',
         board: initialBoard,
         winner: '',
+        phase: 'placement',
         updatedAt: serverTimestamp()
+      }).catch(error => {
+        handleFirestoreError(error, OperationType.UPDATE, `games/${gameId}`);
       });
     } catch (error) {
       handleFirestoreError(error, OperationType.UPDATE, `games/${gameId}`);
@@ -421,14 +473,13 @@ function GameBoard({ gameId, onExit }: { gameId: string, onExit: () => void }) {
         key={idx}
         onClick={() => handleCellClick(idx)}
         className={cn(
-          "w-full pt-[100%] relative cursor-pointer outline-none transition-all duration-300",
+          "w-full pt-[100%] relative cursor-pointer outline-none transition-all duration-150",
           isEven ? "board-cell-light hover:brightness-110 hover:shadow-[inset_0_0_15px_rgba(212,175,55,0.4)]" : "board-cell-dark hover:brightness-110 hover:shadow-[inset_0_0_20px_rgba(212,175,55,0.4)]"
         )}
       >
         <div className="absolute inset-0 flex items-center justify-center">
           {content === '1' && (
             <motion.div 
-              layout
               initial={{ scale: 0, opacity: 0 }}
               animate={{ scale: isSelected ? 1.05 : 1, opacity: 1 }}
               transition={{ type: 'spring', stiffness: 400, damping: 25 }}
@@ -440,7 +491,6 @@ function GameBoard({ gameId, onExit }: { gameId: string, onExit: () => void }) {
           )}
           {content === '2' && (
             <motion.div 
-              layout
               initial={{ scale: 0, opacity: 0 }}
               animate={{ scale: isSelected ? 1.05 : 1, opacity: 1 }}
               transition={{ type: 'spring', stiffness: 400, damping: 25 }}

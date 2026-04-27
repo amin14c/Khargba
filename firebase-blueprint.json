@@ -23,6 +23,7 @@
         "turn": { "type": "string", "enum": ["host", "guest"] },
         "board": { "type": "list" },
         "winner": { "type": "string" },
+        "phase": { "type": "string", "enum": ["placement", "movement"] },
         "createdAt": { "type": "timestamp" },
         "updatedAt": { "type": "timestamp" }
       },

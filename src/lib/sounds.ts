@@ -1,9 +1,28 @@
+// Singleton AudioContext to prevent exceeding the browser limit and causing lag
+let audioCtx: AudioContext | null = null;
+
+const getAudioContext = () => {
+  if (!audioCtx) {
+    const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+    if (AudioContextClass) {
+      audioCtx = new AudioContextClass();
+    }
+  }
+  return audioCtx;
+};
+
 export const playSound = (type: 'place' | 'move' | 'capture' | 'win' | 'lose') => {
   try {
-    const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
-    if (!AudioContext) return;
-    const ctx = new AudioContext();
+    const ctx = getAudioContext();
+    if (!ctx) return;
+    
+    // Resume context if it was suspended (autoplay policy)
+    if (ctx.state === 'suspended') {
+      ctx.resume();
+    }
+    
     const now = ctx.currentTime;
+
     
     if (type === 'place' || type === 'move') {
       // A subtle, wooden "thock" sound suitable for a luxury board game
