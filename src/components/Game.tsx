@@ -91,6 +91,31 @@ export default function GameLobby() {
     }
   };
 
+  const createBotGame = async () => {
+    if (!auth.currentUser) return;
+    const initialBoard = Array(49).fill('');
+    
+    const gameId = Math.random().toString(36).substring(2, 10);
+    const gameRef = doc(db, 'games', gameId);
+    
+    try {
+      await setDoc(gameRef, {
+        status: 'playing',
+        hostId: auth.currentUser.uid,
+        guestId: 'bot',
+        turn: 'host',
+        board: initialBoard,
+        winner: '',
+        phase: 'placement',
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      });
+      setActiveGameId(gameId);
+    } catch (error) {
+      handleFirestoreError(error, OperationType.CREATE, `games/${gameId}`);
+    }
+  };
+
   const joinGame = async (gameId: string) => {
     if (!auth.currentUser) return;
     const gameRef = doc(db, 'games', gameId);
@@ -121,12 +146,20 @@ export default function GameLobby() {
         <p className="text-[10px] uppercase font-sans tracking-widest text-[#E6D5B8] opacity-60">
           Create a new session and wait for a challenger
         </p>
-        <button 
-          onClick={createGame}
-          className="luxury-btn-primary w-full py-4 mt-2 rounded-[4px] text-xs font-display"
-        >
-          {t('create_game')}
-        </button>
+        <div className="flex gap-4 mt-2">
+          <button 
+            onClick={createGame}
+            className="flex-1 luxury-btn-primary py-4 rounded-[4px] text-xs font-display"
+          >
+            {t('create_game')}
+          </button>
+          <button 
+            onClick={createBotGame}
+            className="flex-1 luxury-btn-primary py-4 rounded-[4px] text-xs font-display"
+          >
+            Play vs AI
+          </button>
+        </div>
       </div>
 
       <div className="luxury-panel p-6 flex flex-col pt-8">
@@ -232,9 +265,13 @@ function GameBoard({ gameId, onExit }: { gameId: string, onExit: () => void }) {
 
   useEffect(() => {
     if (game?.guestId) {
-      getDoc(doc(db, 'users', game.guestId)).then(snap => {
-        if (snap.exists() && snap.data().displayName) setGuestName(snap.data().displayName);
-      }).catch(() => {});
+      if (game.guestId === 'bot') {
+        setGuestName('Computer');
+      } else {
+        getDoc(doc(db, 'users', game.guestId)).then(snap => {
+          if (snap.exists() && snap.data().displayName) setGuestName(snap.data().displayName);
+        }).catch(() => {});
+      }
     }
   }, [game?.guestId]);
 
@@ -277,9 +314,123 @@ function GameBoard({ gameId, onExit }: { gameId: string, onExit: () => void }) {
     }
   }, [game, auth.currentUser?.uid]);
 
+  const isHost = auth.currentUser?.uid === game?.hostId;
+
+  useEffect(() => {
+    if (game?.status === 'playing' && game.guestId === 'bot' && game.turn === 'guest' && isHost) {
+      const timer = setTimeout(() => {
+        const currentBoard = game.board;
+        let numPlaced = 0;
+        for (let i = 0; i < currentBoard.length; i++) {
+            if (currentBoard[i] !== '') numPlaced++;
+        }
+        const isPlacementPhase = game.phase === 'placement' || (game.phase === undefined && numPlaced < 48);
+        const botPiece = '2';
+        const oppPiece = '1';
+        
+        let targetIdx = -1;
+        let pidx = -1;
+        
+        if (isPlacementPhase) {
+          const emptyIndices = [];
+          for (let i = 0; i < 49; i++) {
+            if (i !== 24 && currentBoard[i] === '') emptyIndices.push(i);
+          }
+          if (emptyIndices.length > 0) {
+            targetIdx = emptyIndices[Math.floor(Math.random() * emptyIndices.length)];
+          }
+        } else {
+          const botPieces = [];
+          for (let i=0; i<49; i++) {
+            if (currentBoard[i] === botPiece) botPieces.push(i);
+          }
+          const validMovesAndPieces = [];
+          for (let p of botPieces) {
+             const mvs = getValidMoves(p, currentBoard);
+             for(let m of mvs) {
+               validMovesAndPieces.push({p, m});
+             }
+          }
+          if (validMovesAndPieces.length > 0) {
+            const mv = validMovesAndPieces[Math.floor(Math.random() * validMovesAndPieces.length)];
+            pidx = mv.p;
+            targetIdx = mv.m;
+          }
+        }
+        
+        if (targetIdx !== -1) {
+           const newBoard = [...currentBoard];
+           newBoard[targetIdx] = botPiece;
+           let newTurn = 'host';
+           
+           if (isPlacementPhase) {
+             const nextNumPlaced = numPlaced + 1;
+             const isLastPlacement = nextNumPlaced === 48;
+             if (!isLastPlacement) {
+                const nextIsGuestTurn = (Math.floor(nextNumPlaced / 2) % 2) === 1;
+                newTurn = nextIsGuestTurn ? 'guest' : 'host';
+             } else {
+                newTurn = 'host';
+             }
+             const updates: any = { board: newBoard, turn: newTurn, updatedAt: serverTimestamp() };
+             if (isLastPlacement) updates.phase = 'movement';
+             setGame((prev: any) => ({ ...prev, board: newBoard, turn: newTurn, phase: updates.phase || prev.phase }));
+             updateDoc(doc(db, 'games', gameId), updates).catch(() => {});
+           } else {
+             newBoard[pidx] = '';
+             let capturedSomething = false;
+             const r = Math.floor(targetIdx / 7);
+             const c = targetIdx % 7;
+             
+              if (r >= 2 && newBoard[(r-1)*7 + c] === oppPiece && newBoard[(r-2)*7 + c] === botPiece) { newBoard[(r-1)*7 + c] = ''; capturedSomething = true; }
+              if (r <= 4 && newBoard[(r+1)*7 + c] === oppPiece && newBoard[(r+2)*7 + c] === botPiece) { newBoard[(r+1)*7 + c] = ''; capturedSomething = true; }
+              if (c >= 2 && newBoard[r*7 + (c-1)] === oppPiece && newBoard[r*7 + (c-2)] === botPiece) { newBoard[r*7 + (c-1)] = ''; capturedSomething = true; }
+              if (c <= 4 && newBoard[r*7 + (c+1)] === oppPiece && newBoard[r*7 + (c+2)] === botPiece) { newBoard[r*7 + (c+1)] = ''; capturedSomething = true; }
+              
+              if (capturedSomething) {
+                let canCapture = false;
+                for (let i = 0; i < 49; i++) {
+                  if (newBoard[i] === botPiece) {
+                    const tempMoves = getValidMoves(i, newBoard);
+                    for (const move of tempMoves) {
+                      const tempBoard = [...newBoard];
+                      tempBoard[move] = botPiece;
+                      tempBoard[i] = '';
+                      const tr = Math.floor(move / 7);
+                      const tc = move % 7;
+                      if (tr >= 2 && tempBoard[(tr-1)*7 + tc] === oppPiece && tempBoard[(tr-2)*7 + tc] === botPiece) canCapture = true;
+                      if (tr <= 4 && tempBoard[(tr+1)*7 + tc] === oppPiece && tempBoard[(tr+2)*7 + tc] === botPiece) canCapture = true;
+                      if (tc >= 2 && tempBoard[tr*7 + (tc-1)] === oppPiece && tempBoard[tr*7 + (tc-2)] === botPiece) canCapture = true;
+                      if (tc <= 4 && tempBoard[tr*7 + (tc+1)] === oppPiece && tempBoard[tr*7 + (tc+2)] === botPiece) canCapture = true;
+                    }
+                  }
+                }
+                if (canCapture) {
+                  newTurn = game.turn;
+                }
+              }
+              
+              let oppCount = 0;
+              for (let i = 0; i < 49; i++) {
+                if (newBoard[i] === oppPiece) oppCount++;
+              }
+              
+              const status = oppCount <= 1 ? 'finished' : 'playing';
+              const winner = oppCount <= 1 ? 'guest' : '';
+              
+              setGame((prev: any) => ({ ...prev, board: newBoard, turn: newTurn, status, winner }));
+              updateDoc(doc(db, 'games', gameId), {
+                board: newBoard, turn: newTurn, status, winner, updatedAt: serverTimestamp()
+              }).catch(() => {});
+           }
+        }
+      }, 600);
+      return () => clearTimeout(timer);
+    }
+  }, [game?.status, game?.guestId, game?.turn, isHost, game?.board, game?.phase, gameId]);
+
   if (!game) return <div className="p-8 text-center">Loading...</div>;
 
-  const isHost = auth.currentUser?.uid === game.hostId;
   const isGuest = auth.currentUser?.uid === game.guestId;
   const isMyTurn = (isHost && game.turn === 'host') || (isGuest && game.turn === 'guest');
 
@@ -319,8 +470,16 @@ function GameBoard({ gameId, onExit }: { gameId: string, onExit: () => void }) {
         if (game.board[idx] === '') {
             const newBoard = [...game.board];
             newBoard[idx] = myPiece;
-            const newTurn = isHost ? 'guest' : 'host';
-            const isLastPlacement = numPlaced === 47;
+            const nextNumPlaced = numPlaced + 1;
+            const isLastPlacement = nextNumPlaced === 48;
+            
+            let newTurn = game.turn;
+            if (!isLastPlacement) {
+               const nextIsHostTurn = (Math.floor(nextNumPlaced / 2) % 2) === 0;
+               newTurn = nextIsHostTurn ? 'host' : 'guest';
+            } else {
+               newTurn = 'host';
+            }
             
             const updates: any = {
                 board: newBoard,
@@ -473,7 +632,7 @@ function GameBoard({ gameId, onExit }: { gameId: string, onExit: () => void }) {
         key={idx}
         onClick={() => handleCellClick(idx)}
         className={cn(
-          "w-full pt-[100%] relative cursor-pointer outline-none transition-all duration-150",
+          "w-full pt-[100%] relative cursor-pointer outline-none transition-colors duration-150",
           isEven ? "board-cell-light hover:brightness-110 hover:shadow-[inset_0_0_15px_rgba(212,175,55,0.4)]" : "board-cell-dark hover:brightness-110 hover:shadow-[inset_0_0_20px_rgba(212,175,55,0.4)]"
         )}
       >

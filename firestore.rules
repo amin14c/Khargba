@@ -37,9 +37,11 @@ service cloud.firestore {
     function isValidGameCreate(data) {
       return data.keys().hasAll(['status', 'hostId', 'guestId', 'turn', 'board', 'winner', 'phase', 'createdAt', 'updatedAt']) &&
              data.keys().size() == 9 &&
-             data.status == 'waiting' &&
+             (
+               (data.status == 'waiting' && data.guestId == '') ||
+               (data.status == 'playing' && data.guestId == 'bot')
+             ) &&
              data.hostId == request.auth.uid && data.hostId.size() <= 128 &&
-             data.guestId == '' &&
              data.turn == 'host' &&
              data.board is list && data.board.size() == 49 &&
              data.winner == '' &&
@@ -81,8 +83,8 @@ service cloud.firestore {
       return existing().status == 'playing' &&
              // terminal lock check included below
              (
-               (existing().turn == 'host' && existing().hostId == request.auth.uid && incoming().turn == 'guest') ||
-               (existing().turn == 'guest' && existing().guestId == request.auth.uid && incoming().turn == 'host')
+               (existing().turn == 'host' && existing().hostId == request.auth.uid && incoming().turn in ['host', 'guest']) ||
+               (existing().turn == 'guest' && (existing().guestId == request.auth.uid || (existing().guestId == 'bot' && existing().hostId == request.auth.uid)) && incoming().turn in ['host', 'guest'])
              ) &&
              incoming().diff(existing()).affectedKeys().hasOnly(['board', 'turn', 'phase', 'updatedAt', 'status', 'winner']);
     }
