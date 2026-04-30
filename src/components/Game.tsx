@@ -116,6 +116,31 @@ export default function GameLobby() {
     }
   };
 
+  const createLocalGame = async () => {
+    if (!auth.currentUser) return;
+    const initialBoard = Array(49).fill('');
+    
+    const gameId = Math.random().toString(36).substring(2, 10);
+    const gameRef = doc(db, 'games', gameId);
+    
+    try {
+      await setDoc(gameRef, {
+        status: 'playing',
+        hostId: auth.currentUser.uid,
+        guestId: 'local',
+        turn: 'host',
+        board: initialBoard,
+        winner: '',
+        phase: 'placement',
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      });
+      setActiveGameId(gameId);
+    } catch (error) {
+      handleFirestoreError(error, OperationType.CREATE, `games/${gameId}`);
+    }
+  };
+
   const joinGame = async (gameId: string) => {
     if (!auth.currentUser) return;
     const gameRef = doc(db, 'games', gameId);
@@ -158,6 +183,12 @@ export default function GameLobby() {
             className="flex-1 luxury-btn-primary py-4 rounded-[4px] text-xs font-display"
           >
             Play vs AI
+          </button>
+          <button 
+            onClick={createLocalGame}
+            className="flex-1 luxury-btn-primary py-4 rounded-[4px] text-xs font-display"
+          >
+            Pass & Play
           </button>
         </div>
       </div>
@@ -267,6 +298,8 @@ function GameBoard({ gameId, onExit }: { gameId: string, onExit: () => void }) {
     if (game?.guestId) {
       if (game.guestId === 'bot') {
         setGuestName('Computer');
+      } else if (game.guestId === 'local') {
+        setGuestName('Player 2 (Local)');
       } else {
         getDoc(doc(db, 'users', game.guestId)).then(snap => {
           if (snap.exists() && snap.data().displayName) setGuestName(snap.data().displayName);
@@ -432,7 +465,8 @@ function GameBoard({ gameId, onExit }: { gameId: string, onExit: () => void }) {
   if (!game) return <div className="p-8 text-center">Loading...</div>;
 
   const isGuest = auth.currentUser?.uid === game.guestId;
-  const isMyTurn = (isHost && game.turn === 'host') || (isGuest && game.turn === 'guest');
+  const isLocalGame = game.guestId === 'local';
+  const isMyTurn = isLocalGame || (isHost && game.turn === 'host') || (isGuest && game.turn === 'guest');
 
   const getValidMoves = (idx: number, board: string[]) => {
     const moves: number[] = [];
@@ -455,7 +489,7 @@ function GameBoard({ gameId, onExit }: { gameId: string, onExit: () => void }) {
   const handleCellClick = async (idx: number) => {
     if (!isMyTurn || game.status !== 'playing') return;
 
-    const myPiece = isHost ? '1' : '2';
+    const myPiece = isLocalGame ? (game.turn === 'host' ? '1' : '2') : (isHost ? '1' : '2');
     
     // Count pieces on board
     let numPlaced = 0;
@@ -513,7 +547,7 @@ function GameBoard({ gameId, onExit }: { gameId: string, onExit: () => void }) {
             newBoard[selectedIdx] = '';
 
             // Sandwich capture logic
-            const oppPiece = isHost ? '2' : '1';
+            const oppPiece = myPiece === '1' ? '2' : '1';
             const r = Math.floor(idx / 7);
             const c = idx % 7;
             
@@ -540,7 +574,7 @@ function GameBoard({ gameId, onExit }: { gameId: string, onExit: () => void }) {
               capturedSomething = true;
             }
 
-            let newTurn = isHost ? 'guest' : 'host';
+            let newTurn = game.turn === 'host' ? 'guest' : 'host';
             
             if (capturedSomething) {
               let canCapture = false;
@@ -572,7 +606,7 @@ function GameBoard({ gameId, onExit }: { gameId: string, onExit: () => void }) {
             }
             
             const status = oppCount <= 1 ? 'finished' : 'playing';
-            const winner = oppCount <= 1 ? (isHost ? 'host' : 'guest') : '';
+            const winner = oppCount <= 1 ? game.turn : '';
 
             setSelectedIdx(null);
             setGame((prev: any) => ({ ...prev, board: newBoard, turn: newTurn, status, winner }));

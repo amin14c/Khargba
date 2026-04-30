@@ -39,7 +39,7 @@ service cloud.firestore {
              data.keys().size() == 9 &&
              (
                (data.status == 'waiting' && data.guestId == '') ||
-               (data.status == 'playing' && data.guestId == 'bot')
+               (data.status == 'playing' && data.guestId in ['bot', 'local'])
              ) &&
              data.hostId == request.auth.uid && data.hostId.size() <= 128 &&
              data.turn == 'host' &&
@@ -84,7 +84,7 @@ service cloud.firestore {
              // terminal lock check included below
              (
                (existing().turn == 'host' && existing().hostId == request.auth.uid && incoming().turn in ['host', 'guest']) ||
-               (existing().turn == 'guest' && (existing().guestId == request.auth.uid || (existing().guestId == 'bot' && existing().hostId == request.auth.uid)) && incoming().turn in ['host', 'guest'])
+               (existing().turn == 'guest' && (existing().guestId == request.auth.uid || (existing().guestId in ['bot', 'local'] && existing().hostId == request.auth.uid)) && incoming().turn in ['host', 'guest'])
              ) &&
              incoming().diff(existing()).affectedKeys().hasOnly(['board', 'turn', 'phase', 'updatedAt', 'status', 'winner']);
     }
